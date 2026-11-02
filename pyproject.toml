@@ -1,0 +1,16 @@
+[project]
+name = "long-short-analyzer"
+version = "0.1.0"
+description = "Sistema de análise de operações Long & Short por Cointegração"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "statsmodels",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

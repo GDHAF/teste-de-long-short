@@ -1,0 +1,16 @@
+# Ambientes virtuais
+.venv/
+venv/
+ENV/
+
+# Cache Python e Pytest
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Banco de dados local e artefatos futuros
+*.sqlite3
+*.parquet
+dist/
+build/
