@@ -115,9 +115,13 @@ O arquivo existente [`long_e_short.py`](../../long_e_short.py) implementa a clas
 3. **Coeficiente de Variação com `ddof=1` vs. `ddof=0`**:
    - *Manual (p. 28)* define desvio padrão com $n-1$ (`ddof=1`), mas os exemplos da *p. 65* (`7,01%` e `34,40%`) foram gerados com desvio padrão populacional (`ddof=0`).
    - *Solução*: Parametrizar `ddof: int = 1` em `coefficient_of_variation(series, ddof=1, as_percentage=False)`, testando ambos os modos.
-4. **Meia-Vida quando $\gamma \ge 0$**:
+4. **Meia-Vida quando $\gamma \ge 0$ e Estatísticas Auxiliares Indisponíveis em `pair_stats`**:
    - Quando o resíduo não reverte à média ($\gamma \ge 0$), $-\ln(2)/\gamma$ seria negativo ou divisão por zero.
-   - *Solução*: Na função isolada `half_life(residuals)`, levantar `DegenerateSeriesError` se $\gamma \ge 0$ (ou retornar `np.inf` quando `allow_non_stationary=True`, utilizado pelo agregador `pair_stats` quando `cointegration_level == 0`).
+   - *Solução*: Na função isolada `half_life(residuals)`, levantar `DegenerateSeriesError` se $\gamma \ge 0$. No agregador `pair_stats`, quando uma estimativa derivada/auxiliar (`half_life`, `fisher_test` em $|\rho|=1$, `beta_rotation` / `cv_beta` quando $N < W$, ou janelas específicas de `historical_volatility`) não pode ser calculada validamente, seu valor retorna `None` (nunca `0.0`), sua entrada em `validity` recebe `False`, `is_valid` recebe `False`, e a causa exata é registrada em `warnings`.
+5. **Compatibilidade de Índices (`pd.Series`)**:
+   - Quando `prices_a` e `prices_b` são objetos indexados (`pd.Series`), `validate_paired_series` verifica igualdade estrita de índices (`series_a.index.equals(series_b.index)`), ausência de `NaN`/`NaT` e ausência de duplicatas no índice, levantando `InvalidSeriesError` sem alinhar ou descartar observações silenciosamente.
+6. **Valores Críticos de Engle-Granger na Regressão com Tendência Temporal (`with_time=True`)**:
+   - O Manual (p. 41 e p. 55) utiliza a tabela fixa `{-4,32 (99%), -3,67 (95%), -3,28 (90%)}` (derivada para regressão de cointegração com 2 variáveis). Na literatura econométrica (MacKinnon 1991/2010), a inclusão de tendência determinística linear ($T \cdot t$) desloca a distribuição assintótica de $\tau$ mais para a esquerda. Por fidelidade ao Manual, `classify_cointegration_level` utiliza os valores documentados por padrão, mantendo a estatística contínua `dickey_fuller` ($\tau$) separada da classificação `cointegration_level`.
 
 ---
 

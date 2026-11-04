@@ -56,7 +56,7 @@ def _fit_ar1_residual_differences(residuals: Any) -> dict[str, Any]:
 
     e_lag_centered = e_lag - np.mean(e_lag)
     sxx = float(np.sum(e_lag_centered**2))
-    if sxx <= 1e-30:
+    if sxx <= 1e-24:
         raise DegenerateSeriesError(
             "A série de resíduos é constante (variância zero em e_{t-1}); regressão AR(1) indeterminada."
         )
@@ -160,7 +160,7 @@ def z_score(residuals: Any, ddof: int = 1) -> np.ndarray:
     mean_e = float(np.mean(arr_e))
     std_e = float(np.std(arr_e, ddof=ddof))
 
-    if std_e <= 1e-15:
+    if std_e <= 1e-12:
         raise DegenerateSeriesError(
             "Desvio padrão dos resíduos é zero; Z-Score indefinido (divisão por zero)."
         )

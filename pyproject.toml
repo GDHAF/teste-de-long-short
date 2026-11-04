@@ -5,6 +5,7 @@ description = "Sistema de análise de operações Long & Short por Cointegraçã
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "django>=5.0",
     "numpy",
     "pandas",
     "scipy",

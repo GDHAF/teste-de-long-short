@@ -44,6 +44,16 @@ def validate_1d_series(
             f"A série '{name}' deve ser unidimensional (1D), mas recebeu DataFrame."
         )
 
+    if isinstance(series, pd.Series):
+        if series.index.isna().any():
+            raise InvalidSeriesError(
+                f"O índice da série '{name}' contém valores ausentes (NaN/NaT)."
+            )
+        if series.index.has_duplicates:
+            raise InvalidSeriesError(
+                f"O índice da série '{name}' contém rótulos duplicados."
+            )
+
     try:
         arr = np.asarray(series, dtype=np.float64)
     except (ValueError, TypeError) as exc:
@@ -118,6 +128,20 @@ def validate_paired_series(
         raise InvalidSeriesError(
             f"As séries '{name_a}' ({arr_a.size}) e '{name_b}' ({arr_b.size}) devem ter o mesmo comprimento."
         )
+
+    if isinstance(series_a, pd.Series) and isinstance(series_b, pd.Series):
+        if not series_a.index.equals(series_b.index):
+            raise InvalidSeriesError(
+                f"Os índices das séries '{name_a}' e '{name_b}' são incompatíveis ou desalinhados."
+            )
+    elif isinstance(series_a, pd.Series) or isinstance(series_b, pd.Series):
+        ser = series_a if isinstance(series_a, pd.Series) else series_b
+        ser_name = name_a if isinstance(series_a, pd.Series) else name_b
+        default_index = pd.RangeIndex(start=0, stop= len(ser), step=1)
+        if not ser.index.equals(default_index):
+            raise InvalidSeriesError(
+                f"A série '{ser_name}' possui índice customizado incompatível com array sem índice explícito."
+            )
 
     if arr_a.size < min_length:
         raise InsufficientDataError(

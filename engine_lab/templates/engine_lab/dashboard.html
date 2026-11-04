@@ -1,0 +1,415 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Long &amp; Short Analyzer — Dashboard de Cointegração ({{ meta.ticker_a }} × {{ meta.ticker_b }})</title>
+    <link rel="stylesheet" href="{% static 'engine_lab/css/dashboard.css' %}">
+</head>
+<body>
+    <!-- Topbar Institucional -->
+    <header class="dashboard-topbar">
+        <div class="brand-block">
+            <div class="brand-mark">L&amp;S</div>
+            <div>
+                <h1 class="brand-title">Long &amp; Short Analyzer — Dashboard de Cointegração</h1>
+                <p class="brand-subtitle">Protótipo Inicial de Monitoramento Econométrico e Validação da Statistical Engine</p>
+            </div>
+        </div>
+        <div class="topbar-meta">
+            <span class="pill-badge">Par: {{ meta.ticker_a }} (Y) × {{ meta.ticker_b }} (X)</span>
+            <span class="pill-badge">Janela Principal: N = {{ meta.n_periods }} períodos</span>
+            <span class="pill-badge pill-readonly">Demonstração Dummy Determinística (Seed {{ meta.seed }} · Somente Leitura)</span>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        <!-- Banner de Identificação da Execução Dummy -->
+        <section class="execution-banner" aria-label="Resumo da Execução Matemática">
+            <div class="banner-pair-info">
+                <h2>Análise de Cointegração (Engle-Granger): {{ meta.ticker_a }} (Dependente Y) vs. {{ meta.ticker_b }} (Independente X)</h2>
+                <p>
+                    Período amostral: <strong>{{ meta.first_date }}</strong> a <strong>{{ meta.last_date }}</strong>
+                    ({{ meta.n_periods }} pregões recortados de {{ meta.total_observations }} observações dummy · Confiança: {{ meta.conf_pct }}%)
+                </p>
+            </div>
+            <div class="equation-box" title="Equação ajustada por Mínimos Quadrados Ordinários (OLS)">
+                {{ meta.equation_simple }}
+            </div>
+        </section>
+
+        <!-- Cards de KPIs Principais -->
+        <section class="kpi-grid" aria-label="Indicadores Principais do Par">
+            <article class="kpi-card highlight-signal">
+                <span class="kpi-label">Z-Score Atual do Resíduo (Z<sub>N</sub>)</span>
+                <div class="kpi-value">{{ primary_stats.z_score_current|floatformat:4 }} <small>DP</small></div>
+                <div class="kpi-sub">
+                    <span>Resíduo: R$ {{ derived_display.residual_current|floatformat:4 }}</span>
+                    <span class="badge {{ signal_summary.badge_class }}">{{ signal_summary.status_text }}</span>
+                </div>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Teste Dickey-Fuller (Estatística τ)</span>
+                <div class="kpi-value">{{ primary_stats.dickey_fuller|floatformat:4 }}</div>
+                <div class="kpi-sub">
+                    <span>Crítico 99%: -4,32</span>
+                    <span class="badge badge-ok">Cointegrado {{ primary_stats.cointegration_level }}%</span>
+                </div>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Coeficiente Angular (β · Hedge Ratio)</span>
+                <div class="kpi-value">{{ primary_stats.beta|floatformat:4 }}</div>
+                <div class="kpi-sub">
+                    <span>IC {{ meta.conf_pct }}%: [{{ primary_stats.ic_beta_min|floatformat:4 }}; {{ primary_stats.ic_beta_max|floatformat:4 }}]</span>
+                    <span class="badge badge-ok">Teste t: {{ primary_stats.t_beta_level }}%</span>
+                </div>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Meia-Vida (Ornstein-Uhlenbeck)</span>
+                <div class="kpi-value">{{ primary_stats.half_life|floatformat:2 }} <small>dias</small></div>
+                <div class="kpi-sub">
+                    <span>γ AR(1): {{ primary_stats.df_gamma|floatformat:4 }}</span>
+                    <span class="badge badge-ok">&lt; 10 dias úteis</span>
+                </div>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Correlação de Pearson (ρ) &amp; Fisher</span>
+                <div class="kpi-value">{{ derived_display.corr_pct|floatformat:2 }}%</div>
+                <div class="kpi-sub">
+                    <span>Fisher {{ meta.conf_pct }}%: [{{ derived_display.fisher_min_pct|floatformat:1 }}%; {{ derived_display.fisher_max_pct|floatformat:1 }}%]</span>
+                    <span class="badge badge-ok">ρ<sub>mín</sub> &gt; 0</span>
+                </div>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Estabilidade do Beta · CV(β)</span>
+                <div class="kpi-value">{{ derived_display.cv_beta_pct|floatformat:2 }}%</div>
+                <div class="kpi-sub">
+                    <span>CV 10 janelas: {{ derived_display.cv_across_periods_pct|floatformat:2 }}%</span>
+                    <span class="badge badge-ok">&lt; 15% Estável</span>
+                </div>
+            </article>
+        </section>
+
+        <!-- Seção Gráfica Principal e Quadro de Sinalização Operacional -->
+        <section class="section-grid-2col">
+            <!-- Gráfico de Z-Score dos Resíduos -->
+            <div class="panel-card">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Análise do Resíduo Padronizado (Z-Score · N = {{ meta.n_periods }} períodos)</h3>
+                        <p class="panel-subtitle">Oscilação estacionária em torno da média 0 com bandas de entrada em ±2,0 DP e stop em ±3,0 DP</p>
+                    </div>
+                    <span class="badge badge-ok">σ<sub>e</sub> = R$ {{ primary_stats.std_residual|floatformat:4 }}</span>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-wrapper">
+                        <canvas id="zscore-canvas" class="chart-canvas"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-item"><span class="legend-swatch" style="background:#38bdf8;"></span> Z-Score (Z<sub>t</sub>)</span>
+                        <span class="legend-item"><span class="legend-swatch" style="background:#10b981;"></span> Banda Inferior (-2,0σ · Compra Dependente)</span>
+                        <span class="legend-item"><span class="legend-swatch" style="background:#f59e0b;"></span> Banda Superior (+2,0σ · Venda Dependente)</span>
+                        <span class="legend-item"><span class="legend-swatch" style="background:#f43f5e;"></span> Limiar ±3,0σ</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumo Operacional e Parâmetros da Regressão -->
+            <div class="panel-card">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Quadro Operacional e Diagnóstico da Regressão</h3>
+                        <p class="panel-subtitle">Dimensionamento proporcional pelo Beta (β) e estimativa de alvos por desvio-padrão</p>
+                    </div>
+                    <span class="badge badge-ok">B × A: {{ inverse_primary.cointegration_level }}%</span>
+                </div>
+                <div class="panel-body">
+                    <div class="metric-list">
+                        <div class="metric-item">
+                            <span class="metric-name">Ponta Ativo A ({{ meta.ticker_a }})</span>
+                            <span class="metric-val">{{ signal_summary.action_a }}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Ponta Ativo B ({{ meta.ticker_b }})</span>
+                            <span class="metric-val">{{ signal_summary.action_b }}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Cotação Atual {{ meta.ticker_a }} (Y<sub>N</sub>)</span>
+                            <span class="metric-val">R$ {{ signal_summary.price_a_current|floatformat:2 }}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Cotação Atual {{ meta.ticker_b }} (X<sub>N</sub>)</span>
+                            <span class="metric-val">R$ {{ signal_summary.price_b_current|floatformat:2 }}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Preço Estimado (Ŷ<sub>N</sub>)</span>
+                            <span class="metric-val">R$ {{ derived_display.fitted_current|floatformat:4 }}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Proporção Lote Base (Q<sub>A</sub> : Q<sub>B</sub>)</span>
+                            <span class="metric-val">{{ signal_summary.base_qty_a }} : {{ signal_summary.rounded_qty_b }} ({{ signal_summary.raw_qty_b|floatformat:0 }})</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Financeiro % (Comprado / Vendido)</span>
+                            <span class="metric-val">{{ signal_summary.financeiro_pct|floatformat:2 }}%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Intercepto (α) ± EP(α)</span>
+                            <span class="metric-val">{{ primary_stats.alpha|floatformat:4 }} ± {{ primary_stats.se_alpha|floatformat:4 }}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Coef. Angular (β) ± EP(β)</span>
+                            <span class="metric-val">{{ primary_stats.beta|floatformat:4 }} ± {{ primary_stats.se_beta|floatformat:4 }}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Estatística t(β) / t(α)</span>
+                            <span class="metric-val">{{ primary_stats.t_beta|floatformat:2 }} / {{ primary_stats.t_alpha|floatformat:2 }}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Preço Est. {{ meta.ticker_a }} no Gain (+1 DP)</span>
+                            <span class="metric-val">R$ {{ signal_summary.est_price_a_gain|floatformat:2 }} (Z = {{ signal_summary.target_z_gain|floatformat:2 }})</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Preço Est. {{ meta.ticker_a }} no Loss (-1 DP)</span>
+                            <span class="metric-val">R$ {{ signal_summary.est_price_a_loss|floatformat:2 }} (Z = {{ signal_summary.target_z_loss|floatformat:2 }})</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Gráficos Secundários: Séries de Preços e Beta Rotation -->
+        <section class="section-grid-equal">
+            <div class="panel-card">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Séries de Preços Dummy ({{ meta.ticker_a }} vs. {{ meta.ticker_b }}) e Ajuste Linear (Ŷ<sub>t</sub>)</h3>
+                        <p class="panel-subtitle">R² da regressão simples: {{ derived_display.r_squared_pct|floatformat:2 }}% · Graus de liberdade: {{ primary_stats.df }}</p>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-wrapper">
+                        <canvas id="prices-canvas" class="chart-canvas"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-item"><span class="legend-swatch" style="background:#38bdf8;"></span> Preço Real {{ meta.ticker_a }} (Y<sub>t</sub>)</span>
+                        <span class="legend-item"><span class="legend-swatch" style="background:#f59e0b;"></span> Preço Estimado Ŷ<sub>t</sub> = α + βX<sub>t</sub></span>
+                        <span class="legend-item"><span class="legend-swatch" style="background:#94a3b8;"></span> Preço Real {{ meta.ticker_b }} (X<sub>t</sub>)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Beta Rotation (β Móvel · Janela Deslizante de {{ meta.rolling_window }} períodos)</h3>
+                        <p class="panel-subtitle">{{ derived_display.cv_classification }}</p>
+                    </div>
+                    <span class="badge badge-ok">β̄ = {{ derived_display.beta_rotation_mean|floatformat:4 }}</span>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-wrapper">
+                        <canvas id="beta-rotation-canvas" class="chart-canvas"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-item"><span class="legend-swatch" style="background:#10b981;"></span> Beta Móvel (β<sub>t</sub>)</span>
+                        <span class="legend-item"><span class="legend-swatch" style="background:#94a3b8;"></span> Média (β̄ = {{ derived_display.beta_rotation_mean|floatformat:4 }})</span>
+                        <span class="legend-item"><span class="legend-swatch" style="background:#f43f5e;"></span> Bandas ±2σ<sub>β</sub> (σ<sub>β</sub> = {{ derived_display.beta_rotation_std|floatformat:4 }})</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Painel Operacional Multi-Período (10 Janelas do Manual do TCC - p. 55) -->
+        <section class="panel-card" aria-label="Painel Operacional Multi-Período">
+            <div class="panel-header">
+                <div>
+                    <h3 class="panel-title">Painel Operacional Multi-Período (10 Janelas Padrão do Manual: 250 a 70 dias úteis)</h3>
+                    <p class="panel-subtitle">
+                        Verificação de persistência da cointegração em múltiplos horizontes temporais e teste reverso B × A
+                    </p>
+                </div>
+                <div class="topbar-meta">
+                    <span class="badge badge-ok">Períodos Cointegrados: {{ panel_summary.cointegrated_count }} / {{ panel_summary.total_periods }}</span>
+                    <span class="badge badge-ok">Períodos com Entrada (|Z| ≥ 2): {{ panel_summary.entry_signal_count }} / {{ panel_summary.total_periods }}</span>
+                    <span class="badge badge-ok">B × A Cointegrado: {{ panel_summary.b_x_a_cointegrated_count }} / {{ panel_summary.total_periods }}</span>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Período (N)</th>
+                                <th>Dickey-Fuller (τ)</th>
+                                <th>Cointegração</th>
+                                <th>Coef. Angular (β)</th>
+                                <th>Desvio Atual (Z)</th>
+                                <th>Fisher Mín. (99%)</th>
+                                <th>Fisher Máx. (99%)</th>
+                                <th>Financeiro %</th>
+                                <th>Meia-Vida (dias)</th>
+                                <th>IC(β, 99%) Mín.</th>
+                                <th>IC(β, 99%) Máx.</th>
+                                <th>Teste t(β)</th>
+                                <th>Teste t(α)</th>
+                                <th>B × A</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in multi_period_rows %}
+                            <tr class="{% if row.n_periods == meta.n_periods %}row-highlight{% endif %}">
+                                <td class="mono"><strong>{{ row.n_periods }}</strong></td>
+                                <td class="mono">{{ row.dickey_fuller|floatformat:2 }}</td>
+                                <td>
+                                    {% if row.cointegration_level >= 95 %}
+                                        <span class="badge badge-ok">{{ row.cointegration_level }}%</span>
+                                    {% elif row.cointegration_level == 90 %}
+                                        <span class="badge badge-warn">90%</span>
+                                    {% else %}
+                                        <span class="badge badge-danger">0%</span>
+                                    {% endif %}
+                                </td>
+                                <td class="mono">{{ row.beta|floatformat:4 }}</td>
+                                <td class="mono">
+                                    {% if row.is_entry_signal %}
+                                        <span class="badge badge-ok">{{ row.z_score_current|floatformat:2 }}</span>
+                                    {% else %}
+                                        {{ row.z_score_current|floatformat:2 }}
+                                    {% endif %}
+                                </td>
+                                <td class="mono">{{ row.fisher_min_pct|floatformat:1 }}%</td>
+                                <td class="mono">{{ row.fisher_max_pct|floatformat:1 }}%</td>
+                                <td class="mono">{{ row.financeiro_pct|floatformat:1 }}%</td>
+                                <td class="mono">{{ row.half_life|floatformat:2 }}</td>
+                                <td class="mono">{{ row.ic_beta_min|floatformat:4 }}</td>
+                                <td class="mono">{{ row.ic_beta_max|floatformat:4 }}</td>
+                                <td class="mono">{{ row.t_beta_level }}%</td>
+                                <td class="mono">{{ row.t_alpha_level }}%</td>
+                                <td>
+                                    {% if row.bx_a_cointegrated %}
+                                        <span class="badge badge-ok">Sim ({{ row.bx_a_level }}%)</span>
+                                    {% else %}
+                                        <span class="badge badge-danger">Não</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Volatilidade Histórica e Amostra Auditável das Observações Dummy -->
+        <section class="section-grid-2col">
+            <!-- Tabela de Amostra de Dados Dummy e Resíduos -->
+            <div class="panel-card">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Amostra Auditável de Valores Dummy e Resíduos (Últimos 12 Pregões)</h3>
+                        <p class="panel-subtitle">Verificação direta de e<sub>t</sub> = Y<sub>t</sub> - Ŷ<sub>t</sub> e padronização Z<sub>t</sub> = (e<sub>t</sub> - ē) / σ<sub>e</sub></p>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>t</th>
+                                    <th>Data</th>
+                                    <th>{{ meta.ticker_a }} (Y<sub>t</sub>)</th>
+                                    <th>{{ meta.ticker_b }} (X<sub>t</sub>)</th>
+                                    <th>Estimado (Ŷ<sub>t</sub>)</th>
+                                    <th>Resíduo (e<sub>t</sub>)</th>
+                                    <th>Z-Score (Z<sub>t</sub>)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in sample_table_rows %}
+                                <tr class="{% if item.is_last %}row-highlight{% endif %}">
+                                    <td class="mono">{{ item.t }}</td>
+                                    <td class="mono">{{ item.date }}</td>
+                                    <td class="mono">R$ {{ item.price_a|floatformat:4 }}</td>
+                                    <td class="mono">R$ {{ item.price_b|floatformat:4 }}</td>
+                                    <td class="mono">R$ {{ item.fitted_a|floatformat:4 }}</td>
+                                    <td class="mono">{{ item.residual|floatformat:4 }}</td>
+                                    <td class="mono"><strong>{{ item.z_score|floatformat:4 }}</strong></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Volatilidade Histórica e Comparativo Regressão Múltipla -->
+            <div class="panel-card">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Volatilidade Histórica Anualizada e Integridade da Engine</h3>
+                        <p class="panel-subtitle">Janelas de 10, 21, 42 e 63 dias úteis e checagem de validade de `pair_stats`</p>
+                    </div>
+                    <span class="badge badge-ok">is_valid = {{ primary_stats.is_valid }}</span>
+                </div>
+                <div class="panel-body">
+                    <div class="table-responsive" style="margin-bottom: 18px;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Janela (Dias Úteis)</th>
+                                    <th>VH {{ meta.ticker_a }} (Y)</th>
+                                    <th>VH {{ meta.ticker_b }} (X)</th>
+                                    <th>VH Beta Rotation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for v in volatility_rows %}
+                                <tr>
+                                    <td class="mono">{{ v.window }} dias</td>
+                                    <td class="mono">{{ v.vol_a_pct|floatformat:2 }}%</td>
+                                    <td class="mono">{{ v.vol_b_pct|floatformat:2 }}%</td>
+                                    <td class="mono">{{ v.vol_beta_pct|floatformat:2 }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="metric-list">
+                        <div class="metric-item">
+                            <span class="metric-name">Correlação Log-Retornos</span>
+                            <span class="metric-val">{{ derived_display.corr_log_returns_pct|floatformat:2 }}%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Modelo c/ Tempo (β / T)</span>
+                            <span class="metric-val">{{ multiple_reg_stats.beta|floatformat:4 }} / {{ multiple_reg_stats.t_coef|floatformat:5 }}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Tau c/ Tempo (DF Múltipla)</span>
+                            <span class="metric-val">{{ multiple_reg_stats.dickey_fuller|floatformat:4 }} ({{ multiple_reg_stats.cointegration_level }}%)</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-name">Avisos da Engine (`warnings`)</span>
+                            <span class="metric-val">{{ primary_stats.warnings|length }} avisos</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="dashboard-footer">
+            Sistema de Análise de Operações Long &amp; Short por Cointegração · Cálculos processados por <code>statistical_engine.pair_stats</code> · Protótipo de Dashboard (Somente Leitura)
+        </footer>
+    </main>
+
+    <script id="dashboard-chart-payload" type="application/json">{{ chart_payload_json|safe }}</script>
+    <script src="{% static 'engine_lab/js/dashboard_charts.js' %}"></script>
+</body>
+</html>

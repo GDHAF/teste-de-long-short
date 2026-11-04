@@ -59,6 +59,18 @@ def test_validate_paired_series_mismatched_lengths():
         validate_paired_series([1.0, 2.0, 3.0], [1.0, 2.0])
 
 
+def test_validate_paired_series_incompatible_indices():
+    s_a = pd.Series([10.0, 11.0, 12.0], index=["2024-01-01", "2024-01-02", "2024-01-03"])
+    s_b = pd.Series([20.0, 21.0, 22.0], index=["2024-01-02", "2024-01-03", "2024-01-04"])
+    with pytest.raises(InvalidSeriesError, match="índices"):
+        validate_paired_series(s_a, s_b)
+
+    # Série com índice duplicado
+    s_dup = pd.Series([10.0, 11.0, 12.0], index=[1, 1, 2])
+    with pytest.raises(InvalidSeriesError, match="duplicados"):
+        validate_1d_series(s_dup)
+
+
 def test_validate_scalar_float():
     assert validate_scalar_float(1.5, "x") == 1.5
     with pytest.raises(InvalidSeriesError):

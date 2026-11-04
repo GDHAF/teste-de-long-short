@@ -98,7 +98,12 @@ def linear_regression(
             f"Observações insuficientes ({n_obs}) para regressão com k={k} variáveis explicativas."
         )
 
-    # Verifica variância da variável independente X
+    # Verifica variância da variável dependente Y e independente X
+    if np.allclose(arr_y, arr_y[0], rtol=0.0, atol=1e-15):
+        raise DegenerateSeriesError(
+            "A série dependente 'y' é constante (variância zero); regressão inválida."
+        )
+
     if np.allclose(arr_x, arr_x[0], rtol=0.0, atol=1e-15):
         raise DegenerateSeriesError(
             "A série independente 'x' é constante (variância zero); beta é indeterminado."
@@ -112,14 +117,23 @@ def linear_regression(
     else:
         design_matrix = np.column_stack((ones, arr_x))
 
-    # Verifica posto completo (ausência de colinearidade perfeita, ex: X perfeitamente linear com t)
+    # Verifica posto completo e condicionamento numérico (ausência de colinearidade)
     rank = np.linalg.matrix_rank(design_matrix)
     if rank < design_matrix.shape[1]:
         raise DegenerateSeriesError(
             "A matriz de regressores é singular (colinearidade perfeita entre as variáveis explicativas)."
         )
 
-    # Verifica também condicionamento numérico para colinearidade quase perfeita
+    col_norms = np.linalg.norm(design_matrix, axis=0)
+    if np.any(col_norms <= 1e-15):
+        raise DegenerateSeriesError("A matriz de regressores possui coluna nula.")
+    scaled_design = design_matrix / col_norms
+    cond_number = float(np.linalg.cond(scaled_design))
+    if not np.isfinite(cond_number) or cond_number > 1e10:
+        raise DegenerateSeriesError(
+            f"Regressão mal condicionada ou colinear (número de condição={cond_number:.2e})."
+        )
+
     if with_time:
         corr_xt = np.corrcoef(arr_x, time_index)[0, 1]
         if np.isnan(corr_xt) or abs(corr_xt) >= 1.0 - 1e-12:

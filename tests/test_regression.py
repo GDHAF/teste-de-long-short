@@ -102,6 +102,13 @@ def test_linear_regression_rejects_constant_x():
         linear_regression(y, x, with_time=False)
 
 
+def test_linear_regression_rejects_constant_y():
+    y = np.full(50, 15.0)
+    x = np.linspace(10.0, 20.0, 50)
+    with pytest.raises(DegenerateSeriesError, match="constante"):
+        linear_regression(y, x, with_time=False)
+
+
 def test_linear_regression_rejects_collinear_x_and_time():
     """Se X cresce de forma perfeitamente linear com t, a regressão múltipla é singular."""
     t = np.arange(1, 51, dtype=np.float64)
